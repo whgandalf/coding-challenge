@@ -65,8 +65,9 @@ class Block {
 	public function render_callback( $attributes, $content, $block ) {
 		$post_types = get_post_types(  [ 'public' => true ] );
 		$class_name = $attributes['className'];
+		$exclude = get_the_ID();
 		ob_start();
-
+		
 		?>
         <div class="<?php echo $class_name; ?>">
 			<h2>Post Counts</h2>
@@ -74,20 +75,13 @@ class Block {
 			<?php
 			foreach ( $post_types as $post_type_slug ) :
                 $post_type_object = get_post_type_object( $post_type_slug  );
-                $post_count = count(
-                    get_posts(
-						[
-							'post_type' => $post_type_slug,
-							'posts_per_page' => -1,
-						]
-					)
-                );
-
-				?>
+                $all_posts_by_type = wp_count_posts($post_type_slug);
+				$post_count = $all_posts_by_type->publish;
+            ?>
 				<li><?php echo 'There are ' . $post_count . ' ' .
 					  $post_type_object->labels->name . '.'; ?></li>
 			<?php endforeach;	?>
-			</ul><p><?php echo 'The current post ID is ' . $_GET['post_id'] . '.'; ?></p>
+			</ul><p><?php echo 'The current post ID is ' . $exclude . '.'; ?></p>
 
 			<?php
 			$query = new WP_Query(  array(
@@ -105,22 +99,27 @@ class Block {
 				),
                 'tag'  => 'foo',
                 'category_name'  => 'baz',
-				  'post__not_in' => [ get_the_ID() ],
 				  'meta_value' => 'Accepted',
 			));
 
-			if ( $query->found_posts ) :
+			$posts = 0; // count the posts displayed, up to 5
+			if ( $query->have_posts() ) {
+				echo '<h2>Any 5 posts with the tag of foo and the category of baz</h2>';
+				echo '<ul>';
+				while ( $query->have_posts() && $posts < 5 ) {
+					$query->the_post();
+					$current = get_the_ID();
+					if ( ! in_array( $current, [$exclude] ) ) {
+						$posts++;
+						the_title( '<li><a href="' . get_permalink() . '">', '</a></li>');
+					}
+				}
+				echo '</ul>';
+			}else{
+				// no results
+			}
+			wp_reset_postdata();
 				?>
-				 <h2>Any 5 posts with the tag of foo and the category of baz</h2>
-                <ul>
-                <?php
-
-                 foreach ( array_slice( $query->posts, 0, 5 ) as $post ) :
-                    ?><li><?php echo $post->post_title ?></li><?php
-				endforeach;
-			endif;
-		 	?>
-			</ul>
 		</div>
 		<?php
 
